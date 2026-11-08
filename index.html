@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-QqnY4HaGYMsjMpcVV2fWDQTQSkDD2LV9vhGyCYBtXr4=' https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js; connect-src wss://broker.emqx.io:8084 wss://broker.hivemq.com:8884; style-src 'sha256-Q7fysiXZqDqkERpvteM/MwfjzIJzZjVbwzWXtkUGrHE='; img-src data:; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-lW59f2re1nKLo1GJMhVdtYkNdsY0GZVk8Op9xPCukl8=' https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js; connect-src wss://broker.emqx.io:8084 wss://broker.hivemq.com:8884; style-src 'sha256-z0PWKxj8bPAzeCUtVe1d/9Lg6Yf+s3Xk8i+cL13qMbc='; img-src data:; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <title>GhostRoom</title>
 <style>
@@ -60,11 +60,11 @@ button:disabled{opacity:.55;cursor:default}
 .msg.theirs{background:var(--theirs)}
 .msg .meta{font-size:.75rem;color:var(--muted);margin-bottom:4px}
 .msg pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font:inherit}
-.messages.code .msg pre{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace;font-size:.88rem;background:var(--code-bg);border-radius:6px;padding:8px}
+.msg .st{margin-left:6px}
+.msg .st.wait{color:var(--muted);font-style:italic}
 .msg .copy{margin-top:4px;min-width:84px;min-height:40px;font-weight:600}
 .empty{color:var(--muted);font-size:.9rem;text-align:center;padding:16px 0}
 textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
-.codemode textarea{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace;font-size:.9rem}
 .toggle{display:flex;gap:6px;align-items:center;font-size:.9rem;color:var(--text);margin:0}
 .toggle input{width:20px;height:20px}
 .spacer{flex:1}
@@ -81,7 +81,7 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
 
   <section id="screenJoin" class="card">
     <form id="createForm" autocomplete="off">
-      <label for="pw">원하는 비밀번호 (뒤에 숫자 5자리가 자동으로 붙어요)</label>
+      <label for="pw">원하는 비밀번호 (뒤에 숫자 4자리가 자동으로 붙어요)</label>
       <div class="inline">
         <input id="pw" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
         <button id="createBtn" class="primary" type="submit">방 만들기</button>
@@ -92,7 +92,7 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
     <button id="randomBtn" type="button">랜덤방 만들기</button>
     <hr class="divider">
     <form id="joinForm" autocomplete="off">
-      <label for="code">받은 방 코드 (비밀번호 + 숫자 5자리)</label>
+      <label for="code">받은 방 코드 (비밀번호 + 숫자 4자리)</label>
       <div class="inline">
         <input id="code" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
         <button id="joinBtn" type="submit">들어가기</button>
@@ -102,8 +102,8 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
     <p id="joinMsg" class="note" role="status" aria-live="polite"></p>
     <details>
       <summary>자세히</summary>
-      <p>방 코드는 비밀번호 뒤에 무작위 숫자 5자리가 붙은 것입니다. 만든 사람이 코드를 상대에게 알려 주면, 상대가 &quot;들어가기&quot;에 그대로 치면 둘이 이어집니다. 글은 브라우저에서 암호화돼 공개 중계를 거치고 어디에도 저장되지 않습니다.</p>
-      <p>랜덤방 코드는 짧아서(최소 6자) 추측 공격에 약할 수 있습니다. 중요한 내용은 긴 비밀번호로 방을 만드세요.</p>
+      <p>방 코드는 비밀번호 뒤에 무작위 숫자 4자리가 붙은 것입니다. 만든 사람이 코드를 상대에게 알려 주면, 상대가 &quot;들어가기&quot;에 그대로 치면 둘이 이어집니다. 글은 브라우저에서 암호화돼 공개 중계를 거치고 어디에도 저장되지 않습니다.</p>
+      <p>랜덤방 코드는 짧아서(최소 5자) 추측 공격에 약할 수 있습니다. 중요한 내용은 긴 비밀번호로 방을 만드세요.</p>
     </details>
   </section>
 
@@ -121,16 +121,15 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
     </div>
     <div class="card" id="roomCard">
       <div class="row">
-        <label class="toggle" for="codeToggle"><input id="codeToggle" type="checkbox" checked>코드처럼 보기</label>
         <span class="spacer"></span>
         <button id="copyAllBtn" type="button">전체 복사</button>
         <button id="leaveBtn" type="button">나가기</button>
       </div>
-      <div id="messages" class="messages code" aria-live="polite"></div>
+      <div id="messages" class="messages" aria-live="polite"></div>
       <p id="roomNote" class="note" role="status"></p>
-      <textarea id="compose" aria-label="보낼 글" placeholder="보낼 글 (줄바꿈은 Enter, 보내기는 Ctrl+Enter)" disabled></textarea>
+      <textarea id="compose" aria-label="보낼 글" placeholder="보낼 글 (줄바꿈은 Enter, 보내기는 Ctrl+Enter)"></textarea>
       <div class="row">
-        <button id="sendBtn" class="primary" type="button" disabled>보내기</button>
+        <button id="sendBtn" class="primary" type="button">보내기</button>
         <span id="counter" class="relay"></span>
       </div>
     </div>
@@ -180,7 +179,7 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
   var revealBtn = $('revealBtn'), codeCopyBtn = $('codeCopyBtn');
   var stateText = $('stateText'), relayText = $('relayText'), roomWarn = $('roomWarn');
   var messagesEl = $('messages'), roomNote = $('roomNote'), compose = $('compose');
-  var sendBtn = $('sendBtn'), counter = $('counter'), codeToggle = $('codeToggle');
+  var sendBtn = $('sendBtn'), counter = $('counter');
   var roomCard = $('roomCard');
   if (testMode) $('testBadge').hidden = false;
 
@@ -235,9 +234,9 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
     return a[0] % n;
   }
   var ALNUM = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  function genDigits5() {
-    var n = randBelow(100000);
-    return ('00000' + n).slice(-5);
+  function genDigits4() {
+    var n = randBelow(10000);
+    return ('0000' + n).slice(-4);
   }
   function genRandomPrefix() {
     var len = 1 + randBelow(3), out = '';
@@ -310,8 +309,28 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
     else if (otherId()) { setState('연결됨', 'connected'); connected = true; }
     else if (!inTopTwo() && everSeenCrowd) setState('방 인원을 확인하는 중…', '');
     else setState('상대를 기다리는 중', '');
-    compose.disabled = !connected;
-    sendBtn.disabled = !connected;
+    if (connected) flushQueue();
+  }
+  // 상대가 없을 때 보낸 글: 메모리 대기열 (저장소에 넣지 않는다)
+  var outQueue = [], flushing = false;
+  function setStatus(entry, sent) {
+    if (!entry.stEl) return;
+    entry.stEl.textContent = sent ? '보냄' : '대기 중 — 상대가 들어오면 보냅니다';
+    entry.stEl.className = 'st' + (sent ? '' : ' wait');
+  }
+  async function flushQueue() {
+    if (flushing) return;
+    flushing = true;
+    var mySession = session;
+    try {
+      while (outQueue.length && active && session === mySession && otherId() && client && client.connected) {
+        var entry = outQueue[0];
+        await publish(packet('MSG', { text: entry.text }));
+        if (session !== mySession || !active) return;
+        outQueue.shift();
+        setStatus(entry, true);
+      }
+    } finally { flushing = false; }
   }
   var everSeenCrowd = false;
 
@@ -331,6 +350,11 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
     var meta = document.createElement('div');
     meta.className = 'meta';
     meta.textContent = (entry.who === 'me' ? '나' : '상대') + ' · ' + hhmm(entry.ts);
+    if (entry.who === 'me') {
+      var st = document.createElement('span');
+      meta.appendChild(st); entry.stEl = st;
+      setStatus(entry, !entry.queued);
+    }
     var pre = document.createElement('pre');
     pre.textContent = entry.text;
     var btn = document.createElement('button');
@@ -562,7 +586,7 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
     return t.replace(/^(?:[ \t]*\r?\n)+/, '').replace(/(?:\r?\n[ \t]*)+$/, '');
   }
   async function sendMessage() {
-    if (!active || sendBtn.disabled) return;
+    if (!active) return;
     var text = cleanText(compose.value);
     if (!text.trim()) { compose.value = ''; return; }
     if (text.length > MAX_TEXT) {
@@ -572,8 +596,15 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
     setNote(roomNote, '', '');
     var entry = { who: 'me', text: text, ts: Date.now() };
     compose.value = ''; updateCounter();
-    log.push(entry); addMessageDom(entry);
-    await publish(packet('MSG', { text: text }));
+    if (otherId() && !leaveDeadline && outQueue.length === 0 && client && client.connected) {
+      log.push(entry); addMessageDom(entry);
+      await publish(packet('MSG', { text: text }));
+    } else {
+      entry.queued = true;
+      log.push(entry); addMessageDom(entry);
+      outQueue.push(entry);
+      flushQueue();
+    }
   }
   function updateCounter() {
     var n = compose.value.length;
@@ -599,11 +630,11 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
     var c = client; client = null;
     if (c) { try { c.removeAllListeners(); c.on('error', function () {}); c.end(false); } catch (e) { /* 무시 */ } }
     key = null; topic = null; leavePacket = null;
-    peers.clear(); seen.clear(); log.length = 0;
+    peers.clear(); seen.clear(); log.length = 0; outQueue.length = 0;
     everConnected = false; everSeenCrowd = false; leaveDeadline = 0; leaveSent = false;
     selfId = null; conn = 'idle'; relayName = '';
     messagesEl.textContent = '';
-    compose.value = ''; compose.disabled = true; sendBtn.disabled = true; updateCounter();
+    compose.value = ''; updateCounter();
     pwInput.value = ''; codeInput.value = '';
     roomCode = null; setReveal(false);
     setNote(roomNote, '', ''); setNote(roomWarn, '', ''); roomWarn.hidden = true;
@@ -629,7 +660,7 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
     codeCopyBtn.hidden = !revealed;
   }
 
-  // 방 코드(앞부분 + 숫자 5자리)로 들어간다. mode: 'create' | 'join'
+  // 방 코드(앞부분 + 숫자 4자리)로 들어간다. mode: 'create' | 'join'
   async function enter(code, mode, padded) {
     if (!window.crypto || !crypto.subtle) { setNote(joinMsg, '이 브라우저는 암호 기능(WebCrypto)을 쓸 수 없습니다. https 주소로 여세요.', 'err'); return; }
     if (typeof mqtt === 'undefined') { setNote(joinMsg, 'MQTT 라이브러리를 불러오지 못했습니다. 네트워크를 확인하세요.', 'err'); return; }
@@ -645,7 +676,7 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
     key = d.aes; topic = d.topic;
     roomCode = code; setReveal(false);
     selfId = rand(8); joinTs = Date.now(); joinedAt = joinTs;
-    peers.clear(); seen.clear(); log.length = 0;
+    peers.clear(); seen.clear(); log.length = 0; outQueue.length = 0;
     everConnected = false; everSeenCrowd = false; leaveDeadline = 0; leaveSent = false;
     active = true; conn = 'connecting';
     setNote(joinMsg, '', '');
@@ -662,12 +693,12 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
   function createRoom() {
     var pw = pwInput.value;
     if (!pw) { setNote(joinMsg, '원하는 비밀번호를 입력하세요.', 'err'); pwInput.focus(); return; }
-    enter(pw + genDigits5(), 'create', pw !== pw.trim());
+    enter(pw + genDigits4(), 'create', pw !== pw.trim());
   }
-  function createRandomRoom() { enter(genRandomPrefix() + genDigits5(), 'create', false); }
+  function createRandomRoom() { enter(genRandomPrefix() + genDigits4(), 'create', false); }
   function joinRoom() {
     var code = codeInput.value;
-    if (!/^[\s\S]+[0-9]{5}$/.test(code)) { setNote(joinMsg, '방 코드는 비밀번호 뒤에 숫자 5자리가 붙은 모양이어야 합니다.', 'err'); codeInput.focus(); return; }
+    if (!/^[\s\S]+[0-9]{4}$/.test(code)) { setNote(joinMsg, '방 코드는 비밀번호 뒤에 숫자 4자리가 붙은 모양이어야 합니다.', 'err'); codeInput.focus(); return; }
     enter(code, 'join', code !== code.trim());
   }
 
@@ -690,20 +721,15 @@ textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;bor
     var text = log.map(function (m) { return '[' + (m.who === 'me' ? '나' : '상대') + ' ' + hhmm(m.ts) + ']\n' + m.text; }).join('\n\n');
     doCopy(text, messagesEl, $('copyAllBtn'));
   });
-  codeToggle.addEventListener('change', function () {
-    messagesEl.classList.toggle('code', codeToggle.checked);
-    roomCard.classList.toggle('codemode', codeToggle.checked);
-  });
-  roomCard.classList.add('codemode');
   function onExit() { if (active) sendLeaveSync(); }
   window.addEventListener('pagehide', onExit);
   window.addEventListener('beforeunload', onExit);
 
   if (testMode) {
     // 시험 전용: 메모리가 비었는지 확인하는 손잡이 (값은 내용 없이 개수만)
-    window.__grGen = { randomPrefix: genRandomPrefix, digits5: genDigits5 };
+    window.__grGen = { randomPrefix: genRandomPrefix, digits4: genDigits4 };
     window.__grDebug = function () {
-      return { active: active, log: log.length, seen: seen.size, peers: peers.size, hasKey: !!key, hasCode: roomCode !== null, hasClient: !!client, domMsgs: messagesEl.querySelectorAll('.msg').length };
+      return { active: active, log: log.length, seen: seen.size, peers: peers.size, hasKey: !!key, hasCode: roomCode !== null, hasClient: !!client, queued: outQueue.length, domMsgs: messagesEl.querySelectorAll('.msg').length };
     };
   }
 })();

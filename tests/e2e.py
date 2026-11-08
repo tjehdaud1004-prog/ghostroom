@@ -82,7 +82,7 @@ def main():
 
             # 1. 연결 + 양방향 + 공백 보존
             code1 = make(A, pw)
-            check("0a. 방 만들기: 코드가 앞부분 + 숫자 5자리", re.fullmatch(re.escape(pw) + r"\d{5}", code1) is not None, "앞부분 뒤 숫자 5자리")
+            check("0a. 방 만들기: 코드가 앞부분 + 숫자 4자리", re.fullmatch(re.escape(pw) + r"\d{4}", code1) is not None, "앞부분 뒤 숫자 4자리")
             # 가림 상자
             hidden_txt = A.inner_text("body")
             check("0b. 가린 상태에서 페이지 글자에 코드 없음", code1 not in hidden_txt and pw not in hidden_txt and A.inner_text("#revealBtn") == "비밀번호")
@@ -132,7 +132,7 @@ def main():
             make(D, pw)
             wait_state(D, "기다리는 중")
             time.sleep(8)
-            check("2. 다른 숫자 5자리 -> 서로 안 보임",
+            check("2. 다른 숫자 4자리 -> 서로 안 보임",
                   "기다리는 중" in state(D) and "연결됨" in state(A) and "연결됨" in state(B)
                   and D.locator(".msg").count() == 0, f"D={state(D)!r}")
 
@@ -205,15 +205,15 @@ def main():
             # R. 랜덤방: 200번 뽑기(생성기) + 실제 버튼으로 만든 방에 상대가 들어가기
             ctxR1, ctxR2 = new_ctx(browser, errors, "R1"), new_ctx(browser, errors, "R2")
             R1, R2 = new_page(ctxR1, errors, "R1"), new_page(ctxR2, errors, "R2")
-            samples = R1.evaluate("() => Array.from({length: 200}, () => window.__grGen.randomPrefix() + window.__grGen.digits5())")
-            lens = {len(x) - 5 for x in samples}
+            samples = R1.evaluate("() => Array.from({length: 200}, () => window.__grGen.randomPrefix() + window.__grGen.digits4())")
+            lens = {len(x) - 4 for x in samples}
             check("R1. 랜덤방 200개: 정규식 맞고 앞부분 길이 1·2·3 모두 나옴",
-                  all(re.fullmatch(r"[A-Za-z0-9]{1,3}\d{5}", x) for x in samples) and lens == {1, 2, 3}, f"길이 {sorted(lens)}")
+                  all(re.fullmatch(r"[A-Za-z0-9]{1,3}\d{4}", x) for x in samples) and lens == {1, 2, 3}, f"길이 {sorted(lens)}")
             R1.click("#randomBtn")
             R1.wait_for_function("() => !document.getElementById('screenRoom').hidden", timeout=60000)
             R1.click("#revealBtn")
             rcode = R1.inner_text("#revealBtn")
-            check("R2. 랜덤방 버튼이 만든 코드 형식", re.fullmatch(r"[A-Za-z0-9]{1,3}\d{5}", rcode) is not None, "형식 맞음")
+            check("R2. 랜덤방 버튼이 만든 코드 형식", re.fullmatch(r"[A-Za-z0-9]{1,3}\d{4}", rcode) is not None, "형식 맞음")
             enter(R2, rcode)
             wait_state(R1, "연결됨"); wait_state(R2, "연결됨")
             check("R3. 상대가 '들어가기'에 코드를 쳐서 연결됨", True)
@@ -250,6 +250,40 @@ def main():
             errs_g = [pg.evaluate("window.__csp") for pg in (G, H)]
             check("7b. 추가 CSP 위반 0", all(not x for x in errs_g), str(errs_g))
             ctxG.close(); ctxH.close()
+
+            # 8. 혼자 있을 때 미리 쓰기: 글상자 활성, 대기열, 상대 입장 후 전송, 나가기 시 비움
+            pw4 = "w-" + secrets.token_hex(6)
+            ctxI, ctxJ, ctxK = new_ctx(browser, errors, "I"), new_ctx(browser, errors, "J"), new_ctx(browser, errors, "K")
+            I, J, K = new_page(ctxI, errors, "I"), new_page(ctxJ, errors, "J"), new_page(ctxK, errors, "K")
+            c5 = make(I, pw4)
+            wait_state(I, "상대를 기다리는 중")
+            check("8a. 혼자 있어도 글상자·보내기 활성", I.is_enabled("#compose") and I.is_enabled("#sendBtn"))
+            check("8b. '코드처럼 보기'가 페이지에 없음",
+                  "코드처럼 보기" not in I.inner_text("body") and "코드처럼 보기" not in I.content()
+                  and I.query_selector("#codeToggle") is None)
+            I.fill("#compose", "ls -la\n  echo hi")
+            I.click("#sendBtn")
+            I.wait_for_selector(".msg.mine .st.wait", timeout=10000)
+            st_txt = I.inner_text(".msg.mine .st")
+            check("8c. 혼자 보내면 '대기 중' 표시 + 대기열 1", "대기 중" in st_txt and I.evaluate("window.__grDebug()")["queued"] == 1, st_txt)
+            enter(J, c5)
+            wait_state(I, "연결됨"); wait_state(J, "연결됨")
+            J.wait_for_selector(".msg.theirs", timeout=30000)
+            got = J.inner_text(".msg.theirs pre")
+            I.wait_for_function("() => document.querySelector('.msg.mine .st') && document.querySelector('.msg.mine .st').textContent === '보냄'", timeout=20000)
+            check("8d. 상대 입장 후 도착(공백·줄바꿈 보존)·표시 '보냄'·대기열 0",
+                  got == "ls -la\n  echo hi" and I.evaluate("window.__grDebug()")["queued"] == 0, repr(got))
+            ctxI.close(); ctxJ.close()
+            make(K, "x-" + secrets.token_hex(6))
+            wait_state(K, "상대를 기다리는 중")
+            K.fill("#compose", "pending-1"); K.click("#sendBtn")
+            K.fill("#compose", "pending-2"); K.click("#sendBtn")
+            K.wait_for_function("() => window.__grDebug().queued === 2", timeout=10000)
+            K.click("#leaveBtn")
+            K.wait_for_function("() => !document.getElementById('screenJoin').hidden", timeout=10000)
+            dk = K.evaluate("window.__grDebug()")
+            check("8e. 대기 글이 있는 채 나가면 대기열·기록 비워짐", dk["queued"] == 0 and dk["log"] == 0 and dk["domMsgs"] == 0, str(dk))
+            ctxK.close()
             browser.close()
 
         check("7c. 콘솔 오류·pageerror 0", not errors, "; ".join(errors[:5]))
