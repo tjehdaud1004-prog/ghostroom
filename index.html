@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-QqnY4HaGYMsjMpcVV2fWDQTQSkDD2LV9vhGyCYBtXr4=' https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js; connect-src wss://broker.emqx.io:8084 wss://broker.hivemq.com:8884; style-src 'sha256-Q7fysiXZqDqkERpvteM/MwfjzIJzZjVbwzWXtkUGrHE='; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>GhostRoom</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --text:#1b1f24; --muted:#5d6670; --line:#d5dae0;
+  --accent:#2457d6; --accent-text:#ffffff; --warn:#a15c00; --err:#b3261e; --ok:#17794a;
+  --mine:#e8efff; --theirs:#eef1f4; --code-bg:#f0f2f5;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#14171b; --panel:#1d2127; --text:#e6e9ed; --muted:#9aa3ad; --line:#323943;
+    --accent:#6c93ff; --accent-text:#0b1020; --warn:#e0a24a; --err:#ff8a80; --ok:#5fd39a;
+    --mine:#243252; --theirs:#262b32; --code-bg:#171b20;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI","Malgun Gothic","Noto Sans KR",sans-serif;min-height:100vh}
+main{max-width:720px;margin:0 auto;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:100vh}
+h1{margin:2px 0 0;font-size:1.25rem;letter-spacing:.02em}
+.sub{margin:0;color:var(--muted);font-size:.82rem}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px}
+label{display:block;font-size:.9rem;color:var(--muted);margin:0 0 4px}
+input[type=password],input[type=text]{width:100%;font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.field{margin-bottom:8px}
+.divider{border:0;border-top:1px solid var(--line);margin:12px 0}
+.inline{display:flex;gap:6px}
+.inline>input{flex:1;min-width:0}
+details{font-size:.82rem;color:var(--muted);margin-top:8px}
+details summary{cursor:pointer}
+details p{margin:6px 0 0}
+.topbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.reveal{min-width:96px;font-weight:600;border-style:dashed}
+.reveal.shown{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace;font-weight:500;overflow-wrap:anywhere;text-align:left}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--text);padding:6px 12px;min-height:38px}
+button.primary{background:var(--accent);color:var(--accent-text);border-color:var(--accent);font-weight:600}
+button:disabled{opacity:.55;cursor:default}
+.note{font-size:.88rem;margin:8px 0 0;min-height:1.3em}
+.note.warn{color:var(--warn)}
+.note.err{color:var(--err)}
+.note.ok{color:var(--ok)}
+.foot{font-size:.78rem;color:var(--muted);margin:auto 0 0;padding-top:12px}
+.badge{display:inline-block;font-size:.75rem;border:1px solid var(--warn);color:var(--warn);border-radius:999px;padding:1px 8px;margin-left:8px;vertical-align:middle}
+.statusbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:.92rem}
+.state{font-weight:600}
+.state.connected{color:var(--ok)}
+.state.leaving{color:var(--warn)}
+.relay{font-size:.75rem;color:var(--muted)}
+.messages{display:flex;flex-direction:column;gap:8px;min-height:140px;max-height:55vh;overflow-y:auto;padding:2px}
+.msg{border-radius:10px;padding:8px 10px;border:1px solid var(--line);min-width:0}
+.msg.mine{background:var(--mine)}
+.msg.theirs{background:var(--theirs)}
+.msg .meta{font-size:.75rem;color:var(--muted);margin-bottom:4px}
+.msg pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font:inherit}
+.messages.code .msg pre{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace;font-size:.88rem;background:var(--code-bg);border-radius:6px;padding:8px}
+.msg .copy{margin-top:4px;min-width:84px;min-height:40px;font-weight:600}
+.empty{color:var(--muted);font-size:.9rem;text-align:center;padding:16px 0}
+textarea{width:100%;font:inherit;min-height:72px;resize:vertical;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+.codemode textarea{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace;font-size:.9rem}
+.toggle{display:flex;gap:6px;align-items:center;font-size:.9rem;color:var(--text);margin:0}
+.toggle input{width:20px;height:20px}
+.spacer{flex:1}
+.offscreen{position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>GhostRoom<span id="testBadge" class="badge" hidden>시험 모드</span></h1>
+    <p class="sub">같은 방 코드를 아는 두 사람만 이어지는 임시 대화방</p>
+  </header>
+
+  <section id="screenJoin" class="card">
+    <form id="createForm" autocomplete="off">
+      <label for="pw">원하는 비밀번호 (뒤에 숫자 5자리가 자동으로 붙어요)</label>
+      <div class="inline">
+        <input id="pw" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button id="createBtn" class="primary" type="submit">방 만들기</button>
+      </div>
+      <p id="pwWarn" class="note warn" hidden>비밀번호 맨 앞이나 뒤에 공백이 있습니다. 그대로 방 코드에 들어갑니다.</p>
+    </form>
+    <div class="field"></div>
+    <button id="randomBtn" type="button">랜덤방 만들기</button>
+    <hr class="divider">
+    <form id="joinForm" autocomplete="off">
+      <label for="code">받은 방 코드 (비밀번호 + 숫자 5자리)</label>
+      <div class="inline">
+        <input id="code" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button id="joinBtn" type="submit">들어가기</button>
+      </div>
+      <p id="codeWarn" class="note warn" hidden>방 코드 맨 앞이나 뒤에 공백이 있습니다. 상대가 만든 코드에 공백이 없다면 지우세요.</p>
+    </form>
+    <p id="joinMsg" class="note" role="status" aria-live="polite"></p>
+    <details>
+      <summary>자세히</summary>
+      <p>방 코드는 비밀번호 뒤에 무작위 숫자 5자리가 붙은 것입니다. 만든 사람이 코드를 상대에게 알려 주면, 상대가 &quot;들어가기&quot;에 그대로 치면 둘이 이어집니다. 글은 브라우저에서 암호화돼 공개 중계를 거치고 어디에도 저장되지 않습니다.</p>
+      <p>랜덤방 코드는 짧아서(최소 6자) 추측 공격에 약할 수 있습니다. 중요한 내용은 긴 비밀번호로 방을 만드세요.</p>
+    </details>
+  </section>
+
+  <section id="screenRoom" hidden>
+    <div class="card">
+      <div class="topbar">
+        <button id="revealBtn" type="button" class="reveal" aria-pressed="false">비밀번호</button>
+        <button id="codeCopyBtn" type="button" hidden>복사</button>
+      </div>
+      <div class="statusbar">
+        <span id="stateText" class="state" role="status" aria-live="polite">준비 중</span>
+        <span id="relayText" class="relay"></span>
+      </div>
+      <p id="roomWarn" class="note warn" hidden></p>
+    </div>
+    <div class="card" id="roomCard">
+      <div class="row">
+        <label class="toggle" for="codeToggle"><input id="codeToggle" type="checkbox" checked>코드처럼 보기</label>
+        <span class="spacer"></span>
+        <button id="copyAllBtn" type="button">전체 복사</button>
+        <button id="leaveBtn" type="button">나가기</button>
+      </div>
+      <div id="messages" class="messages code" aria-live="polite"></div>
+      <p id="roomNote" class="note" role="status"></p>
+      <textarea id="compose" aria-label="보낼 글" placeholder="보낼 글 (줄바꿈은 Enter, 보내기는 Ctrl+Enter)" disabled></textarea>
+      <div class="row">
+        <button id="sendBtn" class="primary" type="button" disabled>보내기</button>
+        <span id="counter" class="relay"></span>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">공개 중계를 거치며, 중계는 암호문만 봅니다. 비밀번호가 짧으면 추측당할 수 있어요.</p>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js" integrity="sha384-u4uqeACkFcoKl57rBQJHVGDd1pqhW4w8X3WjTu1ZksPdxoLqdt34jpoNkJisE25W" crossorigin="anonymous"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---- 상수 ----
+  var BROKERS = [
+    { name: 'EMQX', url: 'wss://broker.emqx.io:8084/mqtt' },
+    { name: 'HiveMQ', url: 'wss://broker.hivemq.com:8884/mqtt' }
+  ];
+  var CONNECT_TIMEOUT_MS = 8000;
+  var PBKDF2_ITER = 600000;
+  var APP_SALT = 'ghostroom/v2/salt';
+  var HKDF_SALT = 'ghostroom/v2/hkdf';
+  var HB_EVERY_MS = 3000;
+  var PEER_TIMEOUT_MS = 10000;
+  var MAX_AGE_MS = 120000;
+  var THIRD_GRACE_MS = 12000;
+  var LEAVE_REBUILD_MS = 30000;
+  var MAX_TEXT = 20000;
+
+  var params = new URLSearchParams(location.search);
+  var leaveMs = 600000;
+  var testMode = false;
+  if (params.has('leaveSeconds')) {
+    var n = parseInt(params.get('leaveSeconds'), 10);
+    if (isFinite(n)) {
+      leaveMs = Math.max(3, Math.min(600, n)) * 1000;
+      testMode = true;
+    }
+  }
+
+  // ---- 화면 요소 ----
+  function $(id) { return document.getElementById(id); }
+  var screenJoin = $('screenJoin'), screenRoom = $('screenRoom');
+  var pwInput = $('pw'), codeInput = $('code'), joinBtn = $('joinBtn');
+  var joinMsg = $('joinMsg'), pwWarn = $('pwWarn'), codeWarn = $('codeWarn');
+  var createBtn = $('createBtn'), randomBtn = $('randomBtn');
+  var revealBtn = $('revealBtn'), codeCopyBtn = $('codeCopyBtn');
+  var stateText = $('stateText'), relayText = $('relayText'), roomWarn = $('roomWarn');
+  var messagesEl = $('messages'), roomNote = $('roomNote'), compose = $('compose');
+  var sendBtn = $('sendBtn'), counter = $('counter'), codeToggle = $('codeToggle');
+  var roomCard = $('roomCard');
+  if (testMode) $('testBadge').hidden = false;
+
+  // ---- 세션 상태 (메모리에만) ----
+  var enc = new TextEncoder(), dec = new TextDecoder();
+  var session = 0;            // 입장/파기마다 바뀌는 번호
+  var active = false;
+  var roomCode = null;        // 방 코드 (가림 상자를 열 때만 화면에 쓴다)
+  var revealed = false;
+  var key = null;             // AES-GCM CryptoKey
+  var topic = null;
+  var client = null;
+  var selfId = null, joinTs = 0, joinedAt = 0;
+  var peers = new Map();      // id -> {joinTs, lastSeen}
+  var seen = new Map();       // msgId -> ts
+  var log = [];               // {who, text, ts}
+  var everConnected = false;
+  var leaveDeadline = 0;      // 0 이면 카운트다운 없음
+  var leavePacket = null, leaveBuiltAt = 0;
+  var leaveSent = false;
+  var lastHb = 0;
+  var timer = null;
+  var relayName = '';
+  var conn = 'idle';          // idle | connecting | online | offline
+  var stateKind = '';
+
+  // ---- 바이트 도우미 ----
+  function toHex(buf) {
+    var a = new Uint8Array(buf), s = '';
+    for (var i = 0; i < a.length; i++) s += (a[i] < 16 ? '0' : '') + a[i].toString(16);
+    return s;
+  }
+  function b64enc(bytes) {
+    var s = '', CH = 0x8000;
+    for (var i = 0; i < bytes.length; i += CH) {
+      s += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + CH, bytes.length)));
+    }
+    return btoa(s);
+  }
+  function b64dec(str) {
+    var s = atob(str), out = new Uint8Array(s.length);
+    for (var i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+    return out;
+  }
+  function rand(n) { return toHex(crypto.getRandomValues(new Uint8Array(n))); }
+
+  // ---- 무작위 (거절 샘플링: 편향 없음) ----
+  function randBelow(n) {
+    // n <= 2^32. 균등한 0..n-1
+    var lim = Math.floor(4294967296 / n) * n, a = new Uint32Array(1);
+    do { crypto.getRandomValues(a); } while (a[0] >= lim);
+    return a[0] % n;
+  }
+  var ALNUM = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  function genDigits5() {
+    var n = randBelow(100000);
+    return ('00000' + n).slice(-5);
+  }
+  function genRandomPrefix() {
+    var len = 1 + randBelow(3), out = '';
+    for (var i = 0; i < len; i++) out += ALNUM.charAt(randBelow(62));
+    return out;
+  }
+
+  // ---- 키 만들기 ----
+  async function derive(roomCodeStr) {
+    var base = await crypto.subtle.importKey('raw', enc.encode(roomCodeStr), 'PBKDF2', false, ['deriveBits']);
+    var masterBits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(APP_SALT), iterations: PBKDF2_ITER }, base, 256);
+    var hk = await crypto.subtle.importKey('raw', masterBits, 'HKDF', false, ['deriveBits', 'deriveKey']);
+    var hkdf = function (info) {
+      return { name: 'HKDF', hash: 'SHA-256', salt: enc.encode(HKDF_SALT), info: enc.encode(info) };
+    };
+    var topicBits = await crypto.subtle.deriveBits(hkdf('topic'), hk, 256);
+    var aes = await crypto.subtle.deriveKey(hkdf('aes'), hk, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    // 주제는 32바이트 중 앞 16바이트(hex 32자)만 쓴다
+    return { topic: 'ghostroom/v2/' + toHex(topicBits).slice(0, 32), aes: aes };
+  }
+
+  async function seal(obj) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, enc.encode(JSON.stringify(obj))));
+    var out = new Uint8Array(12 + ct.length);
+    out.set(iv, 0); out.set(ct, 12);
+    return b64enc(out);
+  }
+  async function open(str) {
+    var raw = b64dec(str);
+    if (raw.length < 29) throw new Error('short');
+    var pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.subarray(0, 12) }, key, raw.subarray(12));
+    return JSON.parse(dec.decode(pt));
+  }
+  function packet(kind, extra) {
+    var p = { v: 2, k: kind, id: selfId, jt: joinTs, mid: rand(12), ts: Date.now() };
+    if (extra) for (var k in extra) p[k] = extra[k];
+    return p;
+  }
+
+  // ---- 화면 표시 ----
+  function setState(text, kind) {
+    stateText.textContent = text;
+    stateText.className = 'state' + (kind ? ' ' + kind : '');
+  }
+  function fmt(ms) {
+    var s = Math.max(0, Math.ceil(ms / 1000));
+    var m = Math.floor(s / 60), r = s % 60;
+    return m + ':' + (r < 10 ? '0' : '') + r;
+  }
+  function hhmm(ts) {
+    var d = new Date(ts);
+    return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
+  }
+  function setRelay() {
+    relayText.textContent = relayName ? '중계: ' + relayName : '';
+  }
+  function setNote(el, text, kind) {
+    el.textContent = text || '';
+    el.className = 'note' + (kind ? ' ' + kind : '');
+  }
+
+  function renderStatus() {
+    if (!active) return;
+    var connected = false;
+    if (conn === 'connecting') setState('중계에 연결하는 중…', '');
+    else if (conn === 'offline') setState('중계와 끊김 — 다시 연결하는 중…', 'leaving');
+    else if (leaveDeadline) setState('상대가 나갔습니다 · ' + fmt(leaveDeadline - Date.now()) + ' 안에 돌아오지 않으면 이 방을 지웁니다', 'leaving');
+    else if (otherId()) { setState('연결됨', 'connected'); connected = true; }
+    else if (!inTopTwo() && everSeenCrowd) setState('방 인원을 확인하는 중…', '');
+    else setState('상대를 기다리는 중', '');
+    compose.disabled = !connected;
+    sendBtn.disabled = !connected;
+  }
+  var everSeenCrowd = false;
+
+  function renderEmpty() {
+    if (log.length === 0 && !messagesEl.firstChild) {
+      var e = document.createElement('div');
+      e.className = 'empty'; e.textContent = '아직 글이 없습니다.';
+      messagesEl.appendChild(e);
+    }
+  }
+
+  function addMessageDom(entry) {
+    var empty = messagesEl.querySelector('.empty');
+    if (empty) empty.remove();
+    var box = document.createElement('div');
+    box.className = 'msg ' + (entry.who === 'me' ? 'mine' : 'theirs');
+    var meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = (entry.who === 'me' ? '나' : '상대') + ' · ' + hhmm(entry.ts);
+    var pre = document.createElement('pre');
+    pre.textContent = entry.text;
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'copy'; btn.textContent = '복사';
+    btn.addEventListener('click', function () { doCopy(entry.text, pre, btn); });
+    box.appendChild(meta); box.appendChild(pre); box.appendChild(btn);
+    messagesEl.appendChild(box);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  // ---- 복사 ----
+  function selectNode(node) {
+    try {
+      var r = document.createRange();
+      r.selectNodeContents(node);
+      var sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(r);
+    } catch (e) { /* 무시 */ }
+  }
+  async function copyText(text, selectEl) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (e) { /* 다음 방법 */ }
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.className = 'offscreen'; ta.setAttribute('readonly', '');
+      document.body.appendChild(ta);
+      ta.select(); ta.setSelectionRange(0, text.length);
+      var ok = document.execCommand('copy');
+      ta.remove();
+      if (ok) return true;
+    } catch (e) { /* 다음 방법 */ }
+    if (selectEl) selectNode(selectEl);
+    return false;
+  }
+  var copyNoteTimer = null;
+  async function doCopy(text, selectEl, btn) {
+    var ok = await copyText(text, selectEl);
+    var orig = btn.dataset.label || btn.textContent;
+    btn.dataset.label = orig;
+    if (ok) {
+      btn.textContent = '복사됨';
+      setNote(roomNote, '', '');
+    } else {
+      btn.textContent = orig;
+      setNote(roomNote, '자동 복사가 막혔습니다. 글을 선택해 두었으니 Ctrl+C 를 누르세요.', 'warn');
+    }
+    clearTimeout(copyNoteTimer);
+    copyNoteTimer = setTimeout(function () { btn.textContent = orig; }, 1500);
+  }
+
+  // ---- 참가자 판정 ----
+  function alivePeers() {
+    var now = Date.now(), out = [];
+    peers.forEach(function (p, id) {
+      if (now - p.lastSeen <= PEER_TIMEOUT_MS) out.push({ id: id, jt: p.joinTs });
+    });
+    return out;
+  }
+  function topTwo() {
+    var all = alivePeers();
+    all.push({ id: selfId, jt: joinTs });
+    all.sort(function (a, b) { return a.jt - b.jt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); });
+    return { all: all, top: all.slice(0, 2) };
+  }
+  function inTopTwo() {
+    var t = topTwo().top;
+    return t.some(function (x) { return x.id === selfId; });
+  }
+  function otherId() {
+    var t = topTwo().top;
+    for (var i = 0; i < t.length; i++) if (t[i].id !== selfId) return t[i].id;
+    return null;
+  }
+
+  function evaluate() {
+    if (!active) return;
+    var t = topTwo();
+    if (t.all.length > 2) everSeenCrowd = true;
+    var mine = t.top.some(function (x) { return x.id === selfId; });
+    if (!mine) {
+      if (Date.now() - joinedAt >= THIRD_GRACE_MS) { kickedOut(); return; }
+      renderStatus();
+      return;
+    }
+    var other = otherId();
+    if (other) {
+      everConnected = true;
+      leaveDeadline = 0;
+    } else if (everConnected && !leaveDeadline) {
+      leaveDeadline = Date.now() + leaveMs;
+    }
+    if (leaveDeadline && Date.now() >= leaveDeadline) {
+      destroy('상대가 돌아오지 않아 방을 지웠습니다.', 'warn');
+      return;
+    }
+    renderStatus();
+  }
+
+  function kickedOut() {
+    sendLeaveSync();
+    destroy('방이 이미 두 명입니다. 같은 비밀번호와 숫자라도 셋째는 들어갈 수 없습니다.', 'err');
+  }
+
+  // ---- 중계 연결 ----
+  function tryBroker(b, mySession) {
+    return new Promise(function (resolve, reject) {
+      var done = false, c;
+      function fail(why) {
+        if (done) return;
+        done = true; clearTimeout(tm);
+        try { c && c.end(true); } catch (e) { /* 무시 */ }
+        reject(new Error(why));
+      }
+      var tm = setTimeout(function () { fail('timeout'); }, CONNECT_TIMEOUT_MS);
+      try {
+        c = mqtt.connect(b.url, {
+          clientId: 'gr_' + rand(8), clean: true, reconnectPeriod: 0,
+          connectTimeout: CONNECT_TIMEOUT_MS, keepalive: 30, timerVariant: 'native'
+        });
+      } catch (e) { fail('connect'); return; }
+      c.on('connect', function () {
+        if (done) return;
+        done = true; clearTimeout(tm);
+        if (mySession !== session) { try { c.end(true); } catch (e) { /* 무시 */ } reject(new Error('cancelled')); return; }
+        resolve(c);
+      });
+      c.on('error', function () { fail('error'); });
+      c.on('close', function () { fail('close'); });
+    });
+  }
+
+  async function connectRelay(mySession) {
+    conn = 'connecting'; renderStatus();
+    var c = null;
+    for (var i = 0; i < BROKERS.length; i++) {
+      if (mySession !== session) return;
+      try {
+        relayName = BROKERS[i].name + ' 연결 시도 중'; setRelay();
+        c = await tryBroker(BROKERS[i], mySession);
+        relayName = BROKERS[i].name; setRelay();
+        break;
+      } catch (e) {
+        if (mySession !== session) return;
+      }
+    }
+    if (!c) {
+      relayName = '';
+      destroy('두 중계 모두 연결하지 못했습니다. 잠시 뒤 다시 시도하세요.', 'err');
+      return;
+    }
+    client = c;
+    c.options.reconnectPeriod = 3000;
+    c.on('message', function (t, payload) { onPacket(dec.decode(payload), mySession); });
+    c.on('close', function () {
+      if (mySession !== session || !active) return;
+      conn = 'offline'; renderStatus();
+    });
+    c.on('connect', function () {
+      if (mySession !== session || !active) return;
+      conn = 'online'; renderStatus(); sendHello();
+    });
+    c.subscribe(topic, { qos: 0 }, function (err) {
+      if (mySession !== session || !active) return;
+      if (err) { destroy('구독에 실패했습니다.', 'err'); return; }
+      conn = 'online'; renderStatus(); sendHello();
+    });
+  }
+
+  async function publish(obj) {
+    if (!client || !key) return;
+    var s = await seal(obj);
+    if (client && client.connected) client.publish(topic, s, { qos: 0, retain: false });
+  }
+  function sendHello() { publish(packet('HELLO')); lastHb = Date.now(); }
+  function sendHb() { publish(packet('HB')); lastHb = Date.now(); }
+
+  async function buildLeave() {
+    if (!key) return;
+    var s = await seal(packet('LEAVE'));
+    leavePacket = s; leaveBuiltAt = Date.now();
+  }
+  function sendLeaveSync() {
+    if (leaveSent) return;
+    if (client && leavePacket && client.connected) {
+      leaveSent = true;
+      try { client.publish(topic, leavePacket, { qos: 0, retain: false }); } catch (e) { /* 무시 */ }
+    }
+  }
+
+  // ---- 받기 ----
+  async function onPacket(str, mySession) {
+    var p;
+    try { p = await open(str); } catch (e) { return; }
+    if (mySession !== session || !active) return;
+    if (!p || p.v !== 2 || typeof p.id !== 'string' || typeof p.mid !== 'string' || typeof p.ts !== 'number' || typeof p.jt !== 'number') return;
+    if (p.id === selfId) return;
+    var now = Date.now();
+    if (Math.abs(now - p.ts) > MAX_AGE_MS) return;
+    if (seen.has(p.mid)) return;
+    seen.set(p.mid, p.ts);
+
+    if (p.k === 'LEAVE') {
+      peers.delete(p.id);
+      evaluate();
+      return;
+    }
+    if (p.k !== 'HELLO' && p.k !== 'HB' && p.k !== 'MSG') return;
+    var known = peers.has(p.id);
+    peers.set(p.id, { joinTs: p.jt, lastSeen: now });
+    if (p.k === 'HELLO' && !known) sendHb();
+    if (p.k === 'MSG') {
+      evaluate();
+      if (!active) return;
+      if (otherId() !== p.id) return;
+      if (typeof p.text !== 'string' || p.text.length > MAX_TEXT) return;
+      var entry = { who: 'peer', text: p.text, ts: p.ts };
+      log.push(entry); addMessageDom(entry);
+      return;
+    }
+    evaluate();
+  }
+
+  // ---- 보내기 ----
+  function cleanText(t) {
+    return t.replace(/^(?:[ \t]*\r?\n)+/, '').replace(/(?:\r?\n[ \t]*)+$/, '');
+  }
+  async function sendMessage() {
+    if (!active || sendBtn.disabled) return;
+    var text = cleanText(compose.value);
+    if (!text.trim()) { compose.value = ''; return; }
+    if (text.length > MAX_TEXT) {
+      setNote(roomNote, '글이 너무 깁니다 (' + text.length + '자). 한 번에 ' + MAX_TEXT + '자까지 보낼 수 있어요. 나눠서 보내세요.', 'err');
+      return;
+    }
+    setNote(roomNote, '', '');
+    var entry = { who: 'me', text: text, ts: Date.now() };
+    compose.value = ''; updateCounter();
+    log.push(entry); addMessageDom(entry);
+    await publish(packet('MSG', { text: text }));
+  }
+  function updateCounter() {
+    var n = compose.value.length;
+    counter.textContent = n > 0 ? n + ' / ' + MAX_TEXT : '';
+  }
+
+  // ---- 입장 · 파기 ----
+  function tick() {
+    if (!active) return;
+    var now = Date.now();
+    if (now - lastHb >= HB_EVERY_MS && client && client.connected) sendHb();
+    if (now - leaveBuiltAt >= LEAVE_REBUILD_MS) buildLeave();
+    seen.forEach(function (ts, mid) { if (now - ts > MAX_AGE_MS + 60000) seen.delete(mid); });
+    peers.forEach(function (p, id) { if (now - p.lastSeen > PEER_TIMEOUT_MS * 6) peers.delete(id); });
+    evaluate();
+  }
+
+  function destroy(message, kind) {
+    session++;
+    active = false;
+    clearInterval(timer); timer = null;
+    clearTimeout(copyNoteTimer);
+    var c = client; client = null;
+    if (c) { try { c.removeAllListeners(); c.on('error', function () {}); c.end(false); } catch (e) { /* 무시 */ } }
+    key = null; topic = null; leavePacket = null;
+    peers.clear(); seen.clear(); log.length = 0;
+    everConnected = false; everSeenCrowd = false; leaveDeadline = 0; leaveSent = false;
+    selfId = null; conn = 'idle'; relayName = '';
+    messagesEl.textContent = '';
+    compose.value = ''; compose.disabled = true; sendBtn.disabled = true; updateCounter();
+    pwInput.value = ''; codeInput.value = '';
+    roomCode = null; setReveal(false);
+    setNote(roomNote, '', ''); setNote(roomWarn, '', ''); roomWarn.hidden = true;
+    setState('준비 중', ''); setRelay();
+    screenRoom.hidden = true; screenJoin.hidden = false;
+    setJoinBusy(false);
+    pwWarn.hidden = true; codeWarn.hidden = true;
+    setNote(joinMsg, message || '', kind || '');
+  }
+
+  function leaveNow() {
+    sendLeaveSync();
+    destroy('나갔습니다. 이 기기에는 아무것도 남지 않았습니다.', 'ok');
+  }
+
+  function setJoinBusy(b) { joinBtn.disabled = b; createBtn.disabled = b; randomBtn.disabled = b; }
+
+  function setReveal(on) {
+    revealed = !!on && !!roomCode;
+    revealBtn.textContent = revealed ? roomCode : '비밀번호';
+    revealBtn.className = 'reveal' + (revealed ? ' shown' : '');
+    revealBtn.setAttribute('aria-pressed', revealed ? 'true' : 'false');
+    codeCopyBtn.hidden = !revealed;
+  }
+
+  // 방 코드(앞부분 + 숫자 5자리)로 들어간다. mode: 'create' | 'join'
+  async function enter(code, mode, padded) {
+    if (!window.crypto || !crypto.subtle) { setNote(joinMsg, '이 브라우저는 암호 기능(WebCrypto)을 쓸 수 없습니다. https 주소로 여세요.', 'err'); return; }
+    if (typeof mqtt === 'undefined') { setNote(joinMsg, 'MQTT 라이브러리를 불러오지 못했습니다. 네트워크를 확인하세요.', 'err'); return; }
+    setJoinBusy(true);
+    setNote(joinMsg, '키 만드는 중… (구형 PC 에서는 몇 초 걸릴 수 있어요)', '');
+    var my = ++session;
+    await new Promise(function (r) { requestAnimationFrame(function () { setTimeout(r, 30); }); });
+    var d;
+    try { d = await derive(code); }
+    catch (e) { setJoinBusy(false); setNote(joinMsg, '키를 만들지 못했습니다.', 'err'); return; }
+    if (my !== session) return;
+    pwInput.value = ''; codeInput.value = '';
+    key = d.aes; topic = d.topic;
+    roomCode = code; setReveal(false);
+    selfId = rand(8); joinTs = Date.now(); joinedAt = joinTs;
+    peers.clear(); seen.clear(); log.length = 0;
+    everConnected = false; everSeenCrowd = false; leaveDeadline = 0; leaveSent = false;
+    active = true; conn = 'connecting';
+    setNote(joinMsg, '', '');
+    messagesEl.textContent = ''; renderEmpty();
+    if (padded) { setNote(roomWarn, '방 코드 맨 앞이나 뒤에 공백이 있습니다. 상대도 똑같이 쳤는지 확인하세요.', 'warn'); roomWarn.hidden = false; }
+    else roomWarn.hidden = true;
+    screenJoin.hidden = true; screenRoom.hidden = false;
+    renderStatus();
+    await buildLeave();
+    timer = setInterval(tick, 500);
+    connectRelay(my);
+  }
+
+  function createRoom() {
+    var pw = pwInput.value;
+    if (!pw) { setNote(joinMsg, '원하는 비밀번호를 입력하세요.', 'err'); pwInput.focus(); return; }
+    enter(pw + genDigits5(), 'create', pw !== pw.trim());
+  }
+  function createRandomRoom() { enter(genRandomPrefix() + genDigits5(), 'create', false); }
+  function joinRoom() {
+    var code = codeInput.value;
+    if (!/^[\s\S]+[0-9]{5}$/.test(code)) { setNote(joinMsg, '방 코드는 비밀번호 뒤에 숫자 5자리가 붙은 모양이어야 합니다.', 'err'); codeInput.focus(); return; }
+    enter(code, 'join', code !== code.trim());
+  }
+
+  // ---- 이벤트 ----
+  $('createForm').addEventListener('submit', function (e) { e.preventDefault(); createRoom(); });
+  $('joinForm').addEventListener('submit', function (e) { e.preventDefault(); joinRoom(); });
+  randomBtn.addEventListener('click', createRandomRoom);
+  pwInput.addEventListener('input', function () { pwWarn.hidden = pwInput.value === pwInput.value.trim(); });
+  codeInput.addEventListener('input', function () { codeWarn.hidden = codeInput.value === codeInput.value.trim(); });
+  revealBtn.addEventListener('click', function () { setReveal(!revealed); });
+  codeCopyBtn.addEventListener('click', function () { if (roomCode) doCopy(roomCode, revealBtn, codeCopyBtn); });
+  sendBtn.addEventListener('click', sendMessage);
+  compose.addEventListener('input', updateCounter);
+  compose.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendMessage(); }
+  });
+  $('leaveBtn').addEventListener('click', leaveNow);
+  $('copyAllBtn').addEventListener('click', function () {
+    if (!log.length) { setNote(roomNote, '복사할 글이 없습니다.', ''); return; }
+    var text = log.map(function (m) { return '[' + (m.who === 'me' ? '나' : '상대') + ' ' + hhmm(m.ts) + ']\n' + m.text; }).join('\n\n');
+    doCopy(text, messagesEl, $('copyAllBtn'));
+  });
+  codeToggle.addEventListener('change', function () {
+    messagesEl.classList.toggle('code', codeToggle.checked);
+    roomCard.classList.toggle('codemode', codeToggle.checked);
+  });
+  roomCard.classList.add('codemode');
+  function onExit() { if (active) sendLeaveSync(); }
+  window.addEventListener('pagehide', onExit);
+  window.addEventListener('beforeunload', onExit);
+
+  if (testMode) {
+    // 시험 전용: 메모리가 비었는지 확인하는 손잡이 (값은 내용 없이 개수만)
+    window.__grGen = { randomPrefix: genRandomPrefix, digits5: genDigits5 };
+    window.__grDebug = function () {
+      return { active: active, log: log.length, seen: seen.size, peers: peers.size, hasKey: !!key, hasCode: roomCode !== null, hasClient: !!client, domMsgs: messagesEl.querySelectorAll('.msg').length };
+    };
+  }
+})();
+</script>
+</body>
+</html>
